@@ -319,9 +319,10 @@ with st.sidebar:
     _ts_raw = load_last_updated()
     if _ts_raw:
         try:
-            from datetime import datetime as _dt
+            from datetime import datetime as _dt, timedelta as _td
             _ts = _dt.fromisoformat(_ts_raw.replace("Z", "+00:00"))
-            _ts_label = f"{_ts.day} {_ts.strftime('%b')} · {_ts.strftime('%H:%M')} UTC"
+            _ts_ict = _ts + _td(hours=7)
+            _ts_label = f"{_ts_ict.day} {_ts_ict.strftime('%b')} · {_ts_ict.strftime('%H:%M')} (UTC+7)"
         except Exception:
             _ts_label = _ts_raw[:16]
     else:

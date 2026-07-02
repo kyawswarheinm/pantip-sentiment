@@ -203,38 +203,38 @@ Covers entity matching (`test_entity_match.py`), inference (`test_inference.py`)
 
 ---
 
-## Problems encountered
+## Problems encountered & How they were solved
 
-A log of non-obvious issues found while building this — kept here in case it saves someone else the debugging time.
+Some brain-itching issues were found while building this — kept a log here in case it saves someone else the debugging time.
 
-**Pantip's reply counts are loaded by JavaScript — they don't exist in the raw HTML.** The page uses a JsRender template (`{{:count}} ความคิดเห็น`) that only gets filled in after an AJAX call. `requests` + BeautifulSoup only see the empty placeholder. The original HTML parser (`_parse_stats`, later renamed `_parse_replies`) returned 0 for almost every post because of this.
+### While Scraping Reply Counts
 
-**Tracked down the real endpoint — and it kept getting harder to call.** The actual count lives at `GET /forum/topic/render_comments?tid={id}`, found by reading Pantip's own `jquery.topic-renovate.js` in the browser devtools. It only responds if you include `X-Requested-With: XMLHttpRequest` and a `Referer` header — otherwise it returns empty HTML with no error. Pantip later added another requirement: you need a live PHP session (`PHPSESSID` + `rlr` cookies), which only gets set if you visit the homepage and then the topic page in the same `requests.Session()`. The backfill scripts now do this warm-up step before calling the endpoint.
+- **Pantip's reply counts are loaded by JavaScript — they don't exist in the raw HTML.** The page uses a JsRender template (`{{:count}} ความคิดเห็น`) that only gets filled in after an AJAX call. `requests` + BeautifulSoup only see the empty placeholder. The original HTML parser (`_parse_stats`, later renamed `_parse_replies`) returned 0 for almost every post because of this.
 
-**The `views` field was always broken and got removed.** Same root cause as above — view counts are JS-rendered and there was no easy API equivalent. Since `views` wasn't needed for the analysis, it was dropped entirely from the schema, scraper, all queries, and the dashboard. This included running `ALTER TABLE … DROP COLUMN` directly on the production database.
+- **Tracked down the real reply counts endpoint — and it kept getting harder to call.** The actual count lives at `GET /forum/topic/render_comments?tid={id}`, found by reading Pantip's own `jquery.topic-renovate.js` in the browser devtools. It only responds if you include `X-Requested-With: XMLHttpRequest` and a `Referer` header — otherwise it returns empty HTML with no error. 
 
-**`_parse_datetime` was quietly chopping timestamps too short to parse.** An early version sliced the raw string to `raw[:len(fmt)]` before passing it to `strptime`, with the intention of removing trailing junk. This also cut valid ISO-with-timezone strings down to an unparseable prefix, silently failing for a large chunk of posts. Fixed by dropping the slice and trying each date format against the full, unmodified string.
+- Pantip later added another requirement: you need a live PHP session (`PHPSESSID` + `rlr` cookies), which only gets set if you visit the homepage and then the topic page in the same `requests.Session()`. The backfill scripts now do this warm-up step before calling the reply counts endpoint.
 
-**`data-comment` / `data-reply` HTML attributes are IDs, not counts.** They look like counts — they're integers sitting on the right kind of element — but they're actually comment and reply IDs. Treating them as counts silently corrupted the reply numbers. Excluded once identified.
+### While Scraping View Counts 
 
-**ChromeDriver would hang forever on a bad page.** There was no timeout on `driver.get()`, so one slow or broken page could freeze the whole scraper run until GitHub Actions killed the job. Fixed by setting a 30s `set_page_load_timeout`, wrapping each page fetch in exception handling, and recreating the ChromeDriver on connection failure. Now a single bad page is skipped rather than crashing the whole run.
+- **The `views` field was always broken and got removed.** Same root cause as above — view counts(originally meant for engagement analysis) are JS-rendered. Unlike the reply counts, there was no easy API equivalent. `views` was eventually dropped entirely from the schema, scraper, all queries, and the dashboard. This included running `ALTER TABLE … DROP COLUMN` directly on the production database.
 
-**The Turso client was reconnecting on every single row during the backfill.** Each new connection to Turso takes about 5 seconds. Across ~2,500 historical posts, that added up to hours of wasted time. Fixed by opening one `TursoClient` at the start and reusing it for the whole backfill run.
+### While Parsing Post Timestamps
 
-**The reply-count fix only applies to the backfill scripts — the live scraper still uses HTML parsing.** The accurate AJAX path (`_fetch_comment_count`) is only used in `scripts/update_missing_timestamps.py`. The live scraper still reads reply counts from HTML. This inconsistency is still open — see [Limitations](#limitations).
+- **Some posts have a `NULL posted_at`, so the dashboard filters on `scored_at` instead.** Pantip spreads timestamps across JSON-LD, Open Graph tags, `<time>` elements, and `data-utime` attributes — none are guaranteed to be present. When all strategies fail, `posted_at` stays NULL. We use `scored_at` to keep those posts visible in date-range filters, at the cost of answering "what was scored in this window" rather than "what was posted then."
+
+### Bootstrapping the Dataset with Backfill
+
+- **The live scraper only captures what's trending right now — not significant for a correlation study that requires more data.** Pantip's tag pages only surface recent activity, so the pipeline would take months to accumulate enough posts on its own. A one-time backfill (`scripts/backfill.py`) scrolled the same five boards 30× deeper than a normal run, pulling ~2,500 posts back to September 2025 in a single pass. The caveat: only 3 posts predate 2025 — old evergreen threads that resurfaced in a listing — so it's a denser recent slice, not a true historical archive.
 
 ---
 
 ## Limitations
 
-- **Reply counts differ between the live scraper and backfill scripts.** The live Selenium scraper reads reply counts from HTML (fast, but sometimes wrong). The backfill scripts call Pantip's AJAX endpoint directly (accurate, but requires a session warm-up). New posts get the rough HTML count until a backfill run corrects them.
-- **Old fuzzy matches in the database were made with looser settings.** The fuzzy matching has been tightened (threshold 85 → 92, min alias length 4 → 8 chars, switched from `partial_ratio` to `token_set_ratio` with PyThaiNLP tokenization), but ~13K existing ticker links were created under the original settings and are still in the database. Run `scripts/relink_tickers.py` to reclassify them with the new settings.
-- **About two-thirds of historical scores were saved before the confidence filter existed.** The `SENTIMENT_CONFIDENCE_THRESHOLD = 0.65` filter in `nlp/inference.py` wasn't always there. Many older scores in the database fall below this threshold. Cleaning them up (re-scoring or deleting) is a deliberate decision that hasn't been made yet.
 - **The data is mostly from 2025 onward — it's not a long historical record.** Only 3 of 2,542 scraped posts are from before 2025. Don't treat this as multi-year historical data without checking that your target date range has enough coverage.
-- **There's no labeled data to verify accuracy against.** Sentiment scores come from `cardiffnlp/twitter-xlm-roberta-base-sentiment` — a general-purpose multilingual model not fine-tuned on Thai financial text. There is no ground-truth Thai financial sentiment dataset to validate it with.
-- **The Thai company alias dictionary only covers ~50 names** (`scraper/set_tickers.py`). Tickers outside that list fall back to exact-symbol or fuzzy matching with no alias safety net.
-- **The dashboard date filter is based on when posts were scored, not when they were posted.** Some posts have a NULL `posted_at` because Pantip's SSR datetime parser occasionally fails. To avoid excluding those posts, the date filter uses `scored_at` instead — so it answers "what was scored in this window," not "what was posted in this window."
-- **Free-tier compute limits how much the pipeline can process per run.** GitHub Actions gives 2,000 free minutes/month. This caps how many posts the NLP stage can score per pipeline run — a deliberate cost tradeoff, not an oversight.
+- **The dashboard date filter uses `scored_at`, not `posted_at`.** Some posts have a NULL `posted_at` because Pantip's SSR datetime parser occasionally fails. To avoid excluding those posts, the date filter uses `scored_at` — so it answers "what was scored in this window," not "what was posted then."
+- **The Thai company alias dictionary only covers ~50 names.** Tickers outside that list fall back to exact-symbol or fuzzy matching with no alias safety net.
+- **There's no human-labeled data to verify accuracy against.** Sentiment scores come from `cardiffnlp/twitter-xlm-roberta-base-sentiment` — a general-purpose multilingual model not fine-tuned on Thai financial text. There is no ground-truth Thai financial sentiment dataset to validate it with.
 
 ---
 

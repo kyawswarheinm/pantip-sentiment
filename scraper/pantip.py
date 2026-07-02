@@ -16,6 +16,8 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
+import requests
+
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from selenium import webdriver
@@ -357,8 +359,18 @@ class PantipScraper:
     def __init__(self) -> None:
         self._ua = random.choice(USER_AGENTS)
         self._driver: webdriver.Chrome | None = None
+        self._session = requests.Session()
+        self._session.headers["User-Agent"] = self._ua
         self._consecutive_errors = 0
         self._circuit_open = False
+
+    def _sync_cookies(self) -> None:
+        """Copy live Selenium cookies into the requests session for AJAX calls."""
+        if self._driver is None:
+            return
+        self._session.cookies.clear()
+        for c in self._driver.get_cookies():
+            self._session.cookies.set(c["name"], c["value"])
 
     def _get_driver(self) -> webdriver.Chrome:
         if self._driver is None:
@@ -425,6 +437,10 @@ class PantipScraper:
 
             post = _parse_post_page(topic_soup, link, post_id)
             if post:
+                self._sync_cookies()
+                ajax_count = _fetch_comment_count(self._session, post_id)
+                if ajax_count > 0:
+                    post["replies"] = ajax_count
                 posts.append(post)
                 existing_ids.add(post_id)  # prevent re-fetch within same run
                 logger.debug("Scraped post %s: %s", post_id, (post.get("title_th") or "")[:60])

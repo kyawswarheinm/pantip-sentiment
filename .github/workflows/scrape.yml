@@ -42,6 +42,12 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: python -m scraper.pantip
 
+      - name: Patch zero reply counts (up to 50 posts per run)
+        env:
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: python scripts/update_missing_timestamps.py --fix-replies --limit 50
+
       - name: Link entities + run NLP inference
         env:
           TURSO_URL: ${{ secrets.TURSO_URL }}

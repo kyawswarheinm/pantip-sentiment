@@ -1,4 +1,4 @@
-name: Weekly Kaggle export
+name: Kaggle export (manual)
 
 on:
   workflow_dispatch:   # manual trigger only — scheduled export handled by scrape.yml

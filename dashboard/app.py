@@ -325,10 +325,21 @@ with st.sidebar:
         st.rerun()
 
     st.markdown(
-        '<div style="margin-top:auto;padding-top:24px;font-size:0.68rem;color:#5f6f7f;'
-        'line-height:1.6;border-top:1px solid #1e2f4a;margin-top:24px;padding-top:16px">'
+        '<div style="padding-top:16px;font-size:0.68rem;color:#5f6f7f;'
+        'line-height:1.6;border-top:1px solid #1e3050">'
         'Updates every 3 h · GitHub Actions<br>'
         'Model: XLM-RoBERTa (Cardiff)'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div style="position:fixed;bottom:0.6rem;left:1.25rem;z-index:999;">'
+        '<a href="https://github.com/kyawswarheinm/pantip-sentiment" target="_blank" '
+        'style="font-size:0.86rem;color:#9fafbf;text-decoration:none;display:block;margin-bottom:3px">'
+        'View <span style="color:#3b82f6;text-decoration:underline">GitHub Repository</span> ↗'
+        '</a>'
+        '<div style="font-size:0.6rem;color:#3a4f62">© 2026 Kyaw Swar Hein · MIT License</div>'
         '</div>',
         unsafe_allow_html=True,
     )

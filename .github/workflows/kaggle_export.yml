@@ -1,9 +1,7 @@
 name: Weekly Kaggle export
 
 on:
-  schedule:
-    - cron: '0 6 * * 0'     # every Sunday 06:00 UTC
-  workflow_dispatch:
+  workflow_dispatch:   # manual trigger only — scheduled export handled by scrape.yml
 
 jobs:
   export:

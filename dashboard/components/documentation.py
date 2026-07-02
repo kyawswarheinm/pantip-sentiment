@@ -110,13 +110,13 @@ def _render_toc() -> None:
 
   <div style="display:flex;align-items:center;gap:10px;margin:4px 0 4px 0">
     <div style="flex:1;height:1px;background:#1e3050"></div>
-    <span style="color:#606f6f;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap">Notes &amp; Credits</span>
+    <span style="color:#606f6f;font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;white-space:nowrap">Additional Notes</span>
     <div style="flex:1;height:1px;background:#1e3050"></div>
   </div>
 
   <div style="margin-bottom:3px"><a href="#limitations" style="color:#e8edf5;text-decoration:none;font-size:0.9rem">—  Known limitations</a></div>
+  <div><a href="#contributors" style="color:#e8edf5;text-decoration:none;font-size:0.9rem">—  Project Attribution</a></div>
   <div style="margin-bottom:3px"><a href="#research_paper" style="color:#e8edf5;text-decoration:none;font-size:0.9rem">—  Research Paper</a></div>
-  <div><a href="#contributors" style="color:#e8edf5;text-decoration:none;font-size:0.9rem">—  Contributors</a></div>
 </div>
 """,
         unsafe_allow_html=True,
@@ -671,7 +671,7 @@ A few notices about the backtest:
         unsafe_allow_html=False,
     )
 
-    _section_label("Contributors", anchor="contributors")
+    _section_label("Project Attribution", anchor="contributors")
     st.markdown(
         """
 - **[Kyaw Swar Hein](https://github.com/kyawswarheinm) (Project Owner & Sole Developer)** : Conceived, designed, and built the project end-to-end. Responsible for the original research question, system architecture, technical design, feature planning and prioritization, implementation, debugging, testing strategy, code review, deployment, documentation review, and all engineering decisions. All project direction, analysis, problem-solving, and final implementation decisions were made by the project owner.

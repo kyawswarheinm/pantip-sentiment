@@ -19,6 +19,7 @@ from dashboard.components.sentiment_ranking import render_sentiment_ranking, ren
 from dashboard.utils import (
     load_active_tickers,
     load_alerts,
+    load_last_updated,
     load_prices,
     load_recent_posts,
     load_sentiment_rankings,
@@ -315,10 +316,22 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
+    _ts_raw = load_last_updated()
+    if _ts_raw:
+        try:
+            from datetime import datetime as _dt
+            _ts = _dt.fromisoformat(_ts_raw)
+            _ts_label = f"{_ts.day} {_ts.strftime('%b')} · {_ts.strftime('%H:%M')} UTC"
+        except Exception:
+            _ts_label = _ts_raw[:16]
+    else:
+        _ts_label = "—"
+
     st.markdown(
         '<div style="padding-top:16px;font-size:0.68rem;color:#5f6f7f;'
         'line-height:1.6;border-top:1px solid #1e3050">'
         'Updates every 3 h · GitHub Actions<br>'
+        f'Last updated: <span style="color:#94a3b8">{_ts_label}</span><br>'
         'Model: XLM-RoBERTa (Cardiff)'
         '</div>',
         unsafe_allow_html=True,

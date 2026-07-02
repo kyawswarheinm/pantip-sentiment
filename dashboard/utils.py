@@ -14,6 +14,17 @@ CACHE_TTL: int = int(os.getenv("STREAMLIT_CACHE_TTL", "900"))
 
 
 @st.cache_data(ttl=CACHE_TTL)
+def load_last_updated() -> str | None:
+    """Return the most recent scored_at timestamp as a formatted string, or None."""
+    from db.client import db_session
+    with db_session() as db:
+        rows = db.fetchall("SELECT MAX(scored_at) AS ts FROM scores")
+    if not rows or not rows[0]["ts"]:
+        return None
+    return rows[0]["ts"]
+
+
+@st.cache_data(ttl=CACHE_TTL)
 def load_tickers() -> list[str]:
     from db.client import db_session
     with db_session() as db:
